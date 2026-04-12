@@ -1,17 +1,27 @@
 package microservice.service.paper.model;
 
+import java.util.UUID;
+
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.EnumType;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import microservice.service.paper.enums.PaperStatus;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Paper {
     @Id
     @GeneratedValue
-    private Long id;
+    @UuidGenerator
+    private UUID id;
 
     private String title;
     private String abstractText;
@@ -19,48 +29,5 @@ public class Paper {
     @Enumerated(EnumType.STRING)
     private PaperStatus status = PaperStatus.SUBMITTED;
 
-    private Long conferenceId;
-
-    public Paper() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getAbstractText() {
-        return abstractText;
-    }
-
-    public void setAbstractText(String abstractText) {
-        this.abstractText = abstractText;
-    }
-
-    public PaperStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PaperStatus status) {
-        this.status = status;
-    }
-
-    public Long getConferenceId() {
-        return conferenceId;
-    }
-
-    public void setConferenceId(Long conferenceId) {
-        this.conferenceId = conferenceId;
-    }
+    private UUID conferenceId;
 }

@@ -2,8 +2,10 @@ package microservice.service.paper.dto;
 
 import microservice.service.paper.model.ConferenceSupportFile;
 
+import java.util.UUID;
+
 public class ConferenceFileDto {
-    private Long id;
+    private UUID id;
     private String originalFileName;
     private String contentType;
     private Long fileSize;
@@ -15,8 +17,8 @@ public class ConferenceFileDto {
         this.fileSize = model.getFileSize();
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
     public String getOriginalFileName() { return originalFileName; }
     public void setOriginalFileName(String originalFileName) { this.originalFileName = originalFileName; }
     public String getContentType() { return contentType; }

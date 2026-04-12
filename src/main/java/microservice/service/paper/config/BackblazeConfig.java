@@ -38,6 +38,7 @@ public class BackblazeConfig {
                         region
                     )
                 )
+                .withPathStyleAccessEnabled(true)
                 .build();
     }
 }

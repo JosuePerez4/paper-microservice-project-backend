@@ -2,6 +2,7 @@ package microservice.service.paper.controller;
 
 import microservice.service.paper.model.Paper;
 import microservice.service.paper.service.PaperService;
+import microservice.service.paper.dto.PaperCreateDto;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import microservice.service.paper.enums.PaperStatus;
 import microservice.service.paper.dto.PaperEvaluationDto;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/papers")
@@ -24,8 +26,8 @@ public class PaperController {
     }
 
     @PostMapping
-    public Paper create(@RequestBody Paper paper){
-        return service.save(paper);
+    public Paper create(@RequestBody PaperCreateDto paperCreateDto){
+        return service.create(paperCreateDto);
     }
 
     @GetMapping("/evaluation-tray")
@@ -39,7 +41,7 @@ public class PaperController {
     }
 
     @PatchMapping("/{id}/evaluate")
-    public Paper evaluatePaper(@PathVariable Long id, @RequestBody PaperEvaluationDto evaluationDto) {
+    public Paper evaluatePaper(@PathVariable UUID id, @RequestBody PaperEvaluationDto evaluationDto) {
         return service.evaluatePaper(id, evaluationDto.getStatus());
     }
 }
