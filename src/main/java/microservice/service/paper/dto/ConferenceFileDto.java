@@ -1,10 +1,17 @@
 package microservice.service.paper.dto;
 
-import microservice.service.paper.model.ConferenceSupportFile;
-
 import java.util.UUID;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import microservice.service.paper.model.ConferenceSupportFile;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ConferenceFileDto {
+
     private UUID id;
     private String originalFileName;
     private String contentType;
@@ -16,13 +23,4 @@ public class ConferenceFileDto {
         this.contentType = model.getContentType();
         this.fileSize = model.getFileSize();
     }
-
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public String getOriginalFileName() { return originalFileName; }
-    public void setOriginalFileName(String originalFileName) { this.originalFileName = originalFileName; }
-    public String getContentType() { return contentType; }
-    public void setContentType(String contentType) { this.contentType = contentType; }
-    public Long getFileSize() { return fileSize; }
-    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
 }
