@@ -1,16 +1,12 @@
 package microservice.service.paper.dto;
 
-import java.util.UUID;
+import jakarta.validation.constraints.NotBlank;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class PaperCreateDto {
-    private String title;
-    private String abstractText;
-    private UUID conferenceId;
-}
+public record PaperCreateDto(
+        @NotBlank String title,
+        @NotBlank String abstractText,
+        @NotBlank String topic,
+        @NotBlank String institutionalAffiliation,
+        @NotBlank String keywords,
+        @NotBlank String authors
+) {}
