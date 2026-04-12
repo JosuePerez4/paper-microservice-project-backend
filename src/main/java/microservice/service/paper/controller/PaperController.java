@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,11 +37,12 @@ public class PaperController {
         this.service = service;
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PaperResponseDto> create(
             @PathVariable UUID conferenceId,
-            @Valid @RequestBody PaperCreateDto body) {
-        return ResponseEntity.ok(service.create(conferenceId, body));
+            @RequestPart("paper") @Valid PaperCreateDto body,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
+        return ResponseEntity.ok(service.create(conferenceId, body, files));
     }
 
     @GetMapping
@@ -70,25 +72,26 @@ public class PaperController {
         return service.evaluate(conferenceId, paperId, body);
     }
 
-    @PostMapping(value = "/{paperId}/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PaperResponseDto> uploadDocument(
+    @PostMapping(value = "/{paperId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PaperResponseDto> uploadDocuments(
             @PathVariable UUID conferenceId,
             @PathVariable UUID paperId,
-            @RequestParam("file") MultipartFile file) throws IOException {
-        return ResponseEntity.ok(service.uploadDocument(conferenceId, paperId, file));
+            @RequestParam("files") List<MultipartFile> files) throws IOException {
+        return ResponseEntity.ok(service.uploadDocuments(conferenceId, paperId, files));
     }
 
-    @GetMapping("/{paperId}/document")
+    @GetMapping("/{paperId}/documents/{attachmentId}")
     public ResponseEntity<byte[]> downloadDocument(
             @PathVariable UUID conferenceId,
-            @PathVariable UUID paperId) {
-        ConferenceFileDownload download = service.downloadDocument(conferenceId, paperId);
+            @PathVariable UUID paperId,
+            @PathVariable UUID attachmentId) {
+        ConferenceFileDownload download = service.downloadDocument(conferenceId, paperId, attachmentId);
         String mediaType = download.contentType() != null && !download.contentType().isBlank()
                 ? download.contentType()
                 : MediaType.APPLICATION_OCTET_STREAM_VALUE;
         String filename = download.originalFileName() != null && !download.originalFileName().isBlank()
                 ? download.originalFileName()
-                : "articulo";
+                : "adjunto";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(mediaType));

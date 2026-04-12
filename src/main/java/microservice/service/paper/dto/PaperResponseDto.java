@@ -1,11 +1,21 @@
 package microservice.service.paper.dto;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import microservice.service.paper.enums.PaperStatus;
 import microservice.service.paper.model.Paper;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class PaperResponseDto {
+
     private UUID id;
     private UUID conferenceId;
     private String title;
@@ -16,111 +26,27 @@ public class PaperResponseDto {
     private String authors;
     private PaperStatus status;
     private String evaluationObservations;
+    /** Indica si hay al menos un adjunto (compatibilidad con clientes que solo comprueban este flag). */
     private boolean hasDocument;
+    private List<PaperAttachmentDto> documents;
 
-    public PaperResponseDto() {
-    }
-
-    public PaperResponseDto(Paper p) {
-        this.id = p.getId();
-        this.conferenceId = p.getConferenceId();
-        this.title = p.getTitle();
-        this.abstractText = p.getAbstractText();
-        this.topic = p.getTopic();
-        this.institutionalAffiliation = p.getInstitutionalAffiliation();
-        this.keywords = p.getKeywords();
-        this.authors = p.getAuthors();
-        this.status = p.getStatus();
-        this.evaluationObservations = p.getEvaluationObservations();
-        String key = p.getDocumentObjectName();
-        this.hasDocument = key != null && !key.isBlank();
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public UUID getConferenceId() {
-        return conferenceId;
-    }
-
-    public void setConferenceId(UUID conferenceId) {
-        this.conferenceId = conferenceId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getAbstractText() {
-        return abstractText;
-    }
-
-    public void setAbstractText(String abstractText) {
-        this.abstractText = abstractText;
-    }
-
-    public String getTopic() {
-        return topic;
-    }
-
-    public void setTopic(String topic) {
-        this.topic = topic;
-    }
-
-    public String getInstitutionalAffiliation() {
-        return institutionalAffiliation;
-    }
-
-    public void setInstitutionalAffiliation(String institutionalAffiliation) {
-        this.institutionalAffiliation = institutionalAffiliation;
-    }
-
-    public String getKeywords() {
-        return keywords;
-    }
-
-    public void setKeywords(String keywords) {
-        this.keywords = keywords;
-    }
-
-    public String getAuthors() {
-        return authors;
-    }
-
-    public void setAuthors(String authors) {
-        this.authors = authors;
-    }
-
-    public PaperStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PaperStatus status) {
-        this.status = status;
-    }
-
-    public String getEvaluationObservations() {
-        return evaluationObservations;
-    }
-
-    public void setEvaluationObservations(String evaluationObservations) {
-        this.evaluationObservations = evaluationObservations;
-    }
-
-    public boolean isHasDocument() {
-        return hasDocument;
-    }
-
-    public void setHasDocument(boolean hasDocument) {
-        this.hasDocument = hasDocument;
+    public static PaperResponseDto from(Paper p) {
+        PaperResponseDto dto = new PaperResponseDto();
+        dto.setId(p.getId());
+        dto.setConferenceId(p.getConferenceId());
+        dto.setTitle(p.getTitle());
+        dto.setAbstractText(p.getAbstractText());
+        dto.setTopic(p.getTopic());
+        dto.setInstitutionalAffiliation(p.getInstitutionalAffiliation());
+        dto.setKeywords(p.getKeywords());
+        dto.setAuthors(p.getAuthors());
+        dto.setStatus(p.getStatus());
+        dto.setEvaluationObservations(p.getEvaluationObservations());
+        List<PaperAttachmentDto> docs = p.getAttachments() == null
+                ? List.of()
+                : p.getAttachments().stream().map(PaperAttachmentDto::new).collect(Collectors.toList());
+        dto.setDocuments(docs);
+        dto.setHasDocument(!docs.isEmpty());
+        return dto;
     }
 }
