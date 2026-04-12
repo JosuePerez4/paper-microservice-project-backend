@@ -1,13 +1,17 @@
 package microservice.service.paper.service;
 
-import microservice.service.paper.model.ConferenceSupportFile;
-import microservice.service.paper.repository.ConferenceSupportFileRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
+import microservice.service.paper.dto.ConferenceFileDownload;
+import microservice.service.paper.model.ConferenceSupportFile;
+import microservice.service.paper.repository.ConferenceSupportFileRepository;
 
 @Service
 public class ConferenceFileService {
@@ -44,6 +48,23 @@ public class ConferenceFileService {
 
     public List<ConferenceSupportFile> getFilesByConference(UUID conferenceId) {
         return repository.findByConferenceId(conferenceId);
+    }
+
+    public ConferenceFileDownload getFileForDownload(UUID conferenceId, UUID fileId) {
+        ConferenceSupportFile supportFile = repository.findById(fileId)
+                .filter(f -> conferenceId.equals(f.getConferenceId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Archivo no encontrado"));
+
+        String key = supportFile.getMinioObjectName();
+        if (key == null || key.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Archivo no encontrado");
+        }
+
+        byte[] content = fileStorageService.downloadFile(key);
+        return new ConferenceFileDownload(
+                content,
+                supportFile.getContentType(),
+                supportFile.getOriginalFileName());
     }
 
     public void deleteFile(UUID fileId) {

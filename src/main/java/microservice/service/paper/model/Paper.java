@@ -2,6 +2,9 @@ package microservice.service.paper.model;
 
 import java.util.UUID;
 
+import org.hibernate.annotations.UuidGenerator;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -11,7 +14,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import microservice.service.paper.enums.PaperStatus;
-import org.hibernate.annotations.UuidGenerator;
 
 @Entity
 @Data
@@ -23,11 +25,32 @@ public class Paper {
     @UuidGenerator
     private UUID id;
 
+    private UUID conferenceId;
+
     private String title;
+
+    @Column(length = 8000)
     private String abstractText;
+
+    private String topic;
+
+    private String institutionalAffiliation;
+
+    @Column(length = 2000)
+    private String keywords;
+
+    @Column(length = 4000)
+    private String authors;
 
     @Enumerated(EnumType.STRING)
     private PaperStatus status = PaperStatus.SUBMITTED;
 
-    private UUID conferenceId;
+    @Column(length = 8000)
+    private String evaluationObservations;
+
+    private String documentObjectName;
+
+    private String documentOriginalFileName;
+
+    private String documentContentType;
 }
