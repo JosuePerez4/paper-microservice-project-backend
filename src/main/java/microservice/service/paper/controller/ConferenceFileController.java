@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -22,7 +23,7 @@ public class ConferenceFileController {
 
     @PostMapping("/{conferenceId}/files")
     public ResponseEntity<ConferenceFileDto> uploadFile(
-            @PathVariable Long conferenceId,
+            @PathVariable UUID conferenceId,
             @RequestParam("file") MultipartFile file) {
         try {
             ConferenceSupportFile savedFile = fileService.uploadFile(conferenceId, file);
@@ -34,7 +35,7 @@ public class ConferenceFileController {
     }
 
     @GetMapping("/{conferenceId}/files")
-    public ResponseEntity<List<ConferenceFileDto>> listFiles(@PathVariable Long conferenceId) {
+    public ResponseEntity<List<ConferenceFileDto>> listFiles(@PathVariable UUID conferenceId) {
         List<ConferenceFileDto> files = fileService.getFilesByConference(conferenceId)
                 .stream()
                 .map(ConferenceFileDto::new)
@@ -43,7 +44,7 @@ public class ConferenceFileController {
     }
 
     @DeleteMapping("/files/{fileId}")
-    public ResponseEntity<Void> deleteFile(@PathVariable Long fileId) {
+    public ResponseEntity<Void> deleteFile(@PathVariable UUID fileId) {
         try {
             fileService.deleteFile(fileId);
             return ResponseEntity.noContent().build();

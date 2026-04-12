@@ -1,11 +1,14 @@
 package microservice.service.paper.service;
 
-import microservice.service.paper.model.Paper;
-import microservice.service.paper.enums.PaperStatus;
-import microservice.service.paper.repository.PaperRepository;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import microservice.service.paper.dto.PaperCreateDto;
+import microservice.service.paper.enums.PaperStatus;
+import microservice.service.paper.model.Paper;
+import microservice.service.paper.repository.PaperRepository;
 
 @Service
 public class PaperService {
@@ -20,6 +23,15 @@ public class PaperService {
         return repository.save(paper);
     }
 
+    public Paper create(PaperCreateDto paperCreateDto){
+        Paper paper = new Paper();
+        paper.setTitle(paperCreateDto.getTitle());
+        paper.setAbstractText(paperCreateDto.getAbstractText());
+        paper.setConferenceId(paperCreateDto.getConferenceId());
+        paper.setStatus(PaperStatus.SUBMITTED);
+        return repository.save(paper);
+    }
+
     public List<Paper> getPapersForEvaluation() {
         return repository.findByStatus(PaperStatus.SUBMITTED);
     }
@@ -31,7 +43,7 @@ public class PaperService {
         return repository.findByStatus(status);
     }
 
-    public Paper evaluatePaper(Long id, PaperStatus newStatus) {
+    public Paper evaluatePaper(UUID id, PaperStatus newStatus) {
         Paper paper = repository.findById(id).orElseThrow(() -> new RuntimeException("Paper not found"));
         paper.setStatus(newStatus);
         return repository.save(paper);

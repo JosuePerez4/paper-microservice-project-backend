@@ -1,13 +1,16 @@
 package microservice.service.paper.dto;
 
+import java.util.UUID;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import microservice.service.paper.enums.PaperStatus;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class PaperEvaluationDto {
-    private PaperStatus status;
+public class PaperCreateDto {
+    private String title;
+    private String abstractText;
+    private UUID conferenceId;
 }

@@ -9,8 +9,8 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -26,28 +26,23 @@ public class FileStorageService {
     private String bucketName;
 
     /**
-     * Subir archivo
+     * Sube bytes ya optimizados a Backblaze B2 (API compatible S3).
      */
-    public String uploadFile(MultipartFile file) {
-        try {
-            String fileName = generateFileName(file.getOriginalFilename());
-            
-            ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentType(file.getContentType());
-            metadata.setContentLength(file.getSize());
+    public String uploadOptimized(byte[] data, String contentType, String originalFileName) {
+        String fileName = generateFileName(originalFileName, contentType);
 
-            s3Client.putObject(
-                bucketName,
-                fileName,
-                file.getInputStream(),
-                metadata
-            );
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType(contentType != null ? contentType : "application/octet-stream");
+        metadata.setContentLength(data.length);
 
-            return fileName; // Retorno el fileName real para guardarlo en la base de datos
-            
-        } catch (IOException e) {
-            throw new RuntimeException("Error al subir archivo", e);
-        }
+        s3Client.putObject(
+            bucketName,
+            fileName,
+            new ByteArrayInputStream(data),
+            metadata
+        );
+
+        return fileName;
     }
 
     /**
@@ -63,10 +58,13 @@ public class FileStorageService {
     }
 
     /**
-     * Eliminar archivo
+     * Elimina el objeto en el bucket B2. Requiere acceso path-style en el cliente S3.
      */
-    public void deleteFile(String fileName) {
-        s3Client.deleteObject(bucketName, fileName);
+    public void deleteFile(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new IllegalArgumentException("La clave del objeto en almacenamiento no puede estar vacía");
+        }
+        s3Client.deleteObject(bucketName, objectKey.trim());
     }
 
     /**
@@ -80,11 +78,46 @@ public class FileStorageService {
         );
     }
 
-    /**
-     * Generar nombre único para el archivo
-     */
-    private String generateFileName(String originalFileName) {
-        return UUID.randomUUID().toString() + "_" + originalFileName;
+    private String generateFileName(String originalFileName, String contentType) {
+        String ext = extensionFromFilename(originalFileName);
+        String fromMime = extensionFromContentType(contentType);
+        if (fromMime != null && (ext.isEmpty() || incompatibleExtension(ext, contentType))) {
+            ext = fromMime;
+        }
+        return UUID.randomUUID() + ext;
+    }
+
+    private static boolean incompatibleExtension(String ext, String contentType) {
+        String mime = contentType != null ? contentType.toLowerCase() : "";
+        if (mime.startsWith("image/jpeg") && !ext.matches("(?i)\\.(jpe?g)")) {
+            return true;
+        }
+        if ("image/png".equals(mime) && !ext.equalsIgnoreCase(".png")) {
+            return true;
+        }
+        if ("application/pdf".equals(mime) && !ext.equalsIgnoreCase(".pdf")) {
+            return true;
+        }
+        return false;
+    }
+
+    private static String extensionFromFilename(String originalFileName) {
+        if (originalFileName == null || !originalFileName.contains(".")) {
+            return "";
+        }
+        return originalFileName.substring(originalFileName.lastIndexOf('.'));
+    }
+
+    private static String extensionFromContentType(String contentType) {
+        if (contentType == null) {
+            return null;
+        }
+        return switch (contentType.toLowerCase()) {
+            case "image/jpeg", "image/jpg" -> ".jpg";
+            case "image/png" -> ".png";
+            case "application/pdf" -> ".pdf";
+            default -> null;
+        };
     }
 
     /**

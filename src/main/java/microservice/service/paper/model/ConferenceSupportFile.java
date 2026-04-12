@@ -1,71 +1,29 @@
 package microservice.service.paper.model;
 
+import java.util.UUID;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ConferenceSupportFile {
 
     @Id
-    @GeneratedValue
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    private Long conferenceId;
+    private UUID conferenceId;
     
     private String originalFileName;
     private String minioObjectName;
     private String contentType;
     private Long fileSize;
-
-    public ConferenceSupportFile() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getConferenceId() {
-        return conferenceId;
-    }
-
-    public void setConferenceId(Long conferenceId) {
-        this.conferenceId = conferenceId;
-    }
-
-    public String getOriginalFileName() {
-        return originalFileName;
-    }
-
-    public void setOriginalFileName(String originalFileName) {
-        this.originalFileName = originalFileName;
-    }
-
-    public String getMinioObjectName() {
-        return minioObjectName;
-    }
-
-    public void setMinioObjectName(String minioObjectName) {
-        this.minioObjectName = minioObjectName;
-    }
-
-    public String getContentType() {
-        return contentType;
-    }
-
-    public void setContentType(String contentType) {
-        this.contentType = contentType;
-    }
-
-    public Long getFileSize() {
-        return fileSize;
-    }
-
-    public void setFileSize(Long fileSize) {
-        this.fileSize = fileSize;
-    }
 }
