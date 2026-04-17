@@ -1,12 +1,10 @@
 package microservice.service.paper.controller;
 
-import jakarta.validation.Valid;
-import microservice.service.paper.dto.ConferenceFileDownload;
-import microservice.service.paper.dto.PaperCreateDto;
-import microservice.service.paper.dto.PaperEvaluationDto;
-import microservice.service.paper.dto.PaperResponseDto;
-import microservice.service.paper.enums.PaperStatus;
-import microservice.service.paper.service.PaperService;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -22,13 +20,16 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.UUID;
+import jakarta.validation.Valid;
+import microservice.service.paper.dto.ConferenceFileDownload;
+import microservice.service.paper.dto.PaperCreateDto;
+import microservice.service.paper.dto.PaperEvaluationDto;
+import microservice.service.paper.dto.PaperResponseDto;
+import microservice.service.paper.enums.PaperStatus;
+import microservice.service.paper.service.PaperService;
 
 @RestController
-@RequestMapping("/conferences/{conferenceId}/papers")
+@RequestMapping("/papers")
 public class PaperController {
 
     private final PaperService service;
@@ -36,8 +37,7 @@ public class PaperController {
     public PaperController(PaperService service) {
         this.service = service;
     }
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/conference/{conferenceId}/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PaperResponseDto> create(
             @PathVariable UUID conferenceId,
             @RequestPart("paper") @Valid PaperCreateDto body,
@@ -45,26 +45,26 @@ public class PaperController {
         return ResponseEntity.ok(service.create(conferenceId, body, files));
     }
 
-    @GetMapping
+    @GetMapping("/conference/{conferenceId}/list")
     public List<PaperResponseDto> list(
             @PathVariable UUID conferenceId,
             @RequestParam(required = false) PaperStatus status) {
         return service.listByConference(conferenceId, status);
     }
 
-    @GetMapping("/evaluation-tray")
+    @GetMapping("/conference/{conferenceId}/evaluations-tray")
     public List<PaperResponseDto> evaluationTray(@PathVariable UUID conferenceId) {
         return service.listEvaluationTray(conferenceId);
     }
 
-    @GetMapping("/{paperId}")
+    @GetMapping("/conference/{conferenceId}/{paperId}")
     public PaperResponseDto getOne(
             @PathVariable UUID conferenceId,
             @PathVariable UUID paperId) {
         return service.getById(conferenceId, paperId);
     }
 
-    @PatchMapping("/{paperId}/evaluation")
+    @PatchMapping("/conference/{conferenceId}/{paperId}/evaluations")
     public PaperResponseDto evaluate(
             @PathVariable UUID conferenceId,
             @PathVariable UUID paperId,
@@ -72,7 +72,7 @@ public class PaperController {
         return service.evaluate(conferenceId, paperId, body);
     }
 
-    @PostMapping(value = "/{paperId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/conference/{conferenceId}/{paperId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PaperResponseDto> uploadDocuments(
             @PathVariable UUID conferenceId,
             @PathVariable UUID paperId,
@@ -80,7 +80,7 @@ public class PaperController {
         return ResponseEntity.ok(service.uploadDocuments(conferenceId, paperId, files));
     }
 
-    @GetMapping("/{paperId}/documents/{attachmentId}")
+    @GetMapping("/conference/{conferenceId}/{paperId}/attachments/{attachmentId}")
     public ResponseEntity<byte[]> downloadDocument(
             @PathVariable UUID conferenceId,
             @PathVariable UUID paperId,
