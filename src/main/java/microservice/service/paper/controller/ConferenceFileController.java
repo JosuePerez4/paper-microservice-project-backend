@@ -24,7 +24,7 @@ import microservice.service.paper.model.ConferenceSupportFile;
 import microservice.service.paper.service.ConferenceFileService;
 
 @RestController
-@RequestMapping("/conferences")
+@RequestMapping("/files")
 public class ConferenceFileController {
 
     private final ConferenceFileService fileService;
@@ -33,7 +33,7 @@ public class ConferenceFileController {
         this.fileService = fileService;
     }
 
-    @PostMapping("/{conferenceId}/files")
+    @PostMapping("/upload/{conferenceId}")
     public ResponseEntity<ConferenceFileDto> uploadFile(
             @PathVariable UUID conferenceId,
             @RequestParam("file") MultipartFile file) {
@@ -46,7 +46,7 @@ public class ConferenceFileController {
         }
     }
 
-    @GetMapping("/{conferenceId}/files")
+    @GetMapping("/list/{conferenceId}")
     public ResponseEntity<List<ConferenceFileDto>> listFiles(@PathVariable UUID conferenceId) {
         List<ConferenceFileDto> files = fileService.getFilesByConference(conferenceId)
                 .stream()
@@ -55,7 +55,7 @@ public class ConferenceFileController {
         return ResponseEntity.ok(files);
     }
 
-    @GetMapping("/{conferenceId}/files/{fileId}")
+    @GetMapping("/{conferenceId}/download/{fileId}")
     public ResponseEntity<byte[]> downloadFile(
             @PathVariable UUID conferenceId,
             @PathVariable UUID fileId) {
@@ -81,7 +81,7 @@ public class ConferenceFileController {
                 .body(download.content());
     }
 
-    @DeleteMapping("/files/{fileId}")
+    @DeleteMapping("/delete/{fileId}")
     public ResponseEntity<Void> deleteFile(@PathVariable UUID fileId) {
         try {
             fileService.deleteFile(fileId);
