@@ -21,6 +21,27 @@ API compatible con S3.
 - **Seguridad:** OAuth2 resource server con JWT HMAC SHA-256. Swagger queda publico;
   el resto requiere autenticacion salvo reglas de rol especificas.
 
+## Modelo de datos y contratos
+
+| Entidad | Proposito | Campos operativos |
+| --- | --- | --- |
+| `Paper` | Envio de un articulo para una conferencia. | `conferenceId`, datos bibliograficos, `status`, `evaluationObservations`. |
+| `PaperAttachment` | Archivo adjunto a un paper. | `paper_id`, `objectName`, `originalFileName`, `contentType`, `fileSize`. |
+| `ConferenceSupportFile` | Archivo compartido a nivel de conferencia. | `conferenceId`, `minioObjectName`, `originalFileName`, `contentType`, `fileSize`. |
+
+Contratos importantes:
+
+- Los IDs de conferencia llegan por path y no se validan contra otro servicio desde
+  este microservicio.
+- La base de datos guarda metadatos y claves de objeto; los bytes viven solo en
+  Backblaze B2/S3.
+- `fileSize` siempre representa el tamano subido despues de optimizar, no el tamano
+  original recibido.
+- Las claves de objeto se generan como `UUID + extension`. Si el optimizador cambia
+  el MIME, la extension se ajusta para coincidir con el contenido almacenado.
+- Los adjuntos de papers usan cascade/orphan removal desde `Paper`; los archivos de
+  conferencia se borran explicitamente desde `ConferenceFileService.deleteFile`.
+
 ## Configuracion local
 
 Requisitos:
@@ -172,6 +193,58 @@ Los archivos de conferencia no estan ligados a un paper; solo a `conferenceId`.
 
 Si el tipo MIME falta, el optimizador lo infiere por extension para `.pdf`, `.jpg`,
 `.jpeg` y `.png`; cualquier otro archivo usa `application/octet-stream`.
+
+Restricciones del flujo:
+
+- Si la optimizacion falla para un PDF ilegible o protegido, se suben los bytes
+  originales con `application/pdf`.
+- Si una imagen no puede leerse con `ImageIO`, se sube sin cambios con el MIME
+  inferido.
+- PNGs con transparencia no se convierten a JPEG para no perder canal alpha.
+- No hay limite de tamano declarado en la aplicacion; revisar limites del gateway,
+  contenedor o servidor antes de aceptar archivos grandes.
+
+## Runbook operativo
+
+### Alta de papers con adjuntos
+
+Codigo principal: `PaperController.create` -> `PaperService.create` ->
+`FileOptimizer` -> `FileStorageService.uploadOptimized`.
+
+1. Verificar JWT con rol `ADMIN` o `AUTHOR`.
+2. Enviar `multipart/form-data` con parte `paper` como JSON y parte opcional
+   `files`.
+3. Confirmar que la respuesta incluye `documents` cuando se subieron archivos.
+4. Si la respuesta es 500 durante la carga, revisar conectividad y permisos del
+   bucket; la subida al bucket ocurre antes de guardar el registro JPA.
+
+### Evaluacion de papers
+
+Codigo principal: `PaperController.evaluate` -> `PaperService.evaluate`.
+
+- Solo cambia `status` y `evaluationObservations`.
+- `status` debe ser uno de `PaperStatus`.
+- El paper se busca por `paperId` y `conferenceId`; si no coinciden devuelve 404.
+
+### Archivos de soporte de conferencia
+
+Codigo principal: `ConferenceFileController` -> `ConferenceFileService`.
+
+- `POST /files/upload/{conferenceId}` guarda un unico parametro `file`.
+- `GET /files/list/{conferenceId}` lista solo metadatos, no descarga bytes.
+- `GET /files/{conferenceId}/download/{fileId}` valida que el archivo pertenezca a
+  la conferencia antes de descargar desde Backblaze.
+- `DELETE /files/delete/{fileId}` elimina primero el objeto del bucket y luego el
+  registro en PostgreSQL.
+
+### Recuperacion ante inconsistencias
+
+| Sintoma | Revision | Accion segura |
+| --- | --- | --- |
+| Registro existe, descarga falla | La clave `objectName`/`minioObjectName` no existe en el bucket o no hay permisos. | Restaurar el objeto con la misma clave o eliminar el registro si ya no debe exponerse. |
+| Objeto existe, registro no aparece | La transaccion JPA fallo despues de subir bytes. | Validar si la clave aparece en logs o en el bucket; si no hay registro asociado, borrar el objeto huerfano. |
+| Delete devuelve 500 | `deleteObject` fallo antes de borrar la fila. | Corregir credenciales/permisos de Backblaze y reintentar el delete. |
+| Tipo o extension no coinciden con el archivo original | El optimizador pudo convertir PNG sin alpha a JPEG o normalizar extension por MIME. | Usar `contentType` de la respuesta como fuente de verdad para clientes. |
 
 ## Troubleshooting
 
