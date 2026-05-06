@@ -23,6 +23,11 @@ import microservice.service.paper.model.PaperAttachment;
 import microservice.service.paper.repository.PaperAttachmentRepository;
 import microservice.service.paper.repository.PaperRepository;
 import microservice.service.paper.service.FileOptimizer.OptimizedPayload;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import microservice.service.paper.config.RabbitMQConfig;
+import microservice.service.paper.dto.PaperEvaluatedEvent;
+import java.time.Instant;
+import java.util.Arrays;
 
 @Service
 public class PaperService {
@@ -31,16 +36,19 @@ public class PaperService {
     private final PaperAttachmentRepository attachmentRepository;
     private final FileStorageService fileStorageService;
     private final FileOptimizer fileOptimizer;
+    private final RabbitTemplate rabbitTemplate;
 
     public PaperService(
             PaperRepository repository,
             PaperAttachmentRepository attachmentRepository,
             FileStorageService fileStorageService,
-            FileOptimizer fileOptimizer) {
+            FileOptimizer fileOptimizer,
+            RabbitTemplate rabbitTemplate) {
         this.repository = repository;
         this.attachmentRepository = attachmentRepository;
         this.fileStorageService = fileStorageService;
         this.fileOptimizer = fileOptimizer;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Transactional
@@ -94,6 +102,35 @@ public class PaperService {
         paper.setEvaluationObservations(
                 dto.observations() != null ? dto.observations().trim() : null);
         repository.save(paper);
+
+        // Map authors from string to Author objects
+        List<PaperEvaluatedEvent.Author> authors = paper.getAuthors() != null 
+                ? Arrays.stream(paper.getAuthors().split(","))
+                        .map(name -> new PaperEvaluatedEvent.Author(name.trim(), "author@example.com")) // Email placeholder
+                        .toList()
+                : Collections.emptyList();
+
+        // Create the event according to the contract (Envelope + Data)
+        PaperEvaluatedEvent event = new PaperEvaluatedEvent(
+                "paper.evaluated",
+                "1.0",
+                UUID.randomUUID(),
+                Instant.now(),
+                "paper-service",
+                new PaperEvaluatedEvent.Data(
+                        paper.getId(),
+                        paper.getConferenceId(),
+                        paper.getTitle(),
+                        paper.getTopic(),
+                        paper.getStatus().name(),
+                        paper.getEvaluationObservations(),
+                        new PaperEvaluatedEvent.EvaluatedBy(UUID.randomUUID(), "CHAIR"), // Evaluator placeholders
+                        authors
+                )
+        );
+
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE, RabbitMQConfig.ROUTING_KEY_EVALUATED, event);
+
         return PaperResponseDto.from(
                 repository.findByIdAndConferenceIdWithAttachments(paperId, conferenceId).orElse(paper));
     }
