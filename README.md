@@ -86,6 +86,50 @@ docker build -t paper-service .
 La aplicacion escucha en `PORT` o `8083` por defecto. Swagger esta disponible en
 `/swagger-ui.html` y el documento OpenAPI en `/v3/api-docs`.
 
+## Despliegue con Docker
+
+La imagen se construye en dos etapas: Maven compila el JAR con Java 21 y
+`-DskipTests`, y la etapa final usa `eclipse-temurin:21-jre-alpine`. El proceso
+corre como usuario `app` no root y arranca con:
+
+```bash
+java $JAVA_OPTS -jar app.jar
+```
+
+Ejemplo local usando las variables de `.env`:
+
+```bash
+docker build -t paper-service .
+docker run --rm --env-file .env -p 8083:8083 paper-service
+```
+
+Restricciones importantes:
+
+- El Dockerfile no copia `.env`; en despliegue se deben inyectar variables de
+  entorno o montar un archivo `.env` en `/app/.env`.
+- Si se cambia `PORT`, el puerto publicado debe coincidir. Por ejemplo,
+  `PORT=9000` requiere `-p 9000:9000`.
+- `SPRING_DATASOURCE_URL` debe apuntar a una base accesible desde el contenedor;
+  `localhost` dentro del contenedor no es el host ni otro contenedor.
+- `JAVA_OPTS` permite ajustar la JVM sin cambiar la imagen, por ejemplo:
+  `JAVA_OPTS="-Xms256m -Xmx512m"`.
+- No hay endpoint Actuator/health declarado. Para smoke tests sin JWT se puede
+  validar que Spring inicio y que OpenAPI responde:
+
+```bash
+curl -f http://localhost:8083/v3/api-docs >/dev/null
+```
+
+Checklist de despliegue:
+
+1. Confirmar conectividad a PostgreSQL desde la red del contenedor.
+2. Confirmar credenciales y region del bucket Backblaze B2/S3-compatible.
+3. Confirmar que `FRONTEND_URL` coincide con el origen real del frontend.
+4. Confirmar que todos los servicios que emiten JWT usan el mismo secreto HMAC
+   configurado en `JWT_PUBLIC_KEY`.
+5. Ejecutar un smoke test de `/v3/api-docs` y una operacion autenticada simple,
+   por ejemplo listar papers de una conferencia conocida.
+
 ## Autenticacion y roles
 
 Los JWT pueden declarar roles en cualquiera de estos claims:
