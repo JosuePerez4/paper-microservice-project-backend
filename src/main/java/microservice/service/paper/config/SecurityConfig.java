@@ -45,8 +45,8 @@ public class SecurityConfig {
                             "/swagger-ui/**",
                             "/v3/api-docs/**")
                     .permitAll()
-                    .requestMatchers("/papers/conference/*/create").hasAnyRole("ADMIN", "AUTHOR")
-                    .requestMatchers("/papers/conference/*/*/evaluations").hasAnyRole("ADMIN", "CHAIR", "ASISTANT", "ASSISTANT")
+                    .requestMatchers("/papers/conference/*/create").permitAll()
+                    .requestMatchers("/papers/conference/*/*/evaluations").permitAll()
                     .requestMatchers("/files/upload/*", "/files/delete/*").hasAnyRole("ADMIN", "CHAIR")
                     .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
