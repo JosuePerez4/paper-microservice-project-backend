@@ -2,13 +2,19 @@ package microservice.service.paper.controller;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,6 +42,26 @@ public class PaperController {
 
     public PaperController(PaperService service) {
         this.service = service;
+    }
+
+    /** Endpoint temporal de debug: muestra claims JWT y authorities. Quitar antes de producción. */
+    @GetMapping("/debug/auth")
+    public Map<String, Object> debugAuth(Authentication authentication) {
+        Map<String, Object> info = new LinkedHashMap<>();
+        info.put("authenticated", authentication != null && authentication.isAuthenticated());
+        info.put("type", authentication != null ? authentication.getClass().getSimpleName() : "null");
+        if (authentication != null) {
+            info.put("authorities", authentication.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority).toList());
+        }
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            Jwt jwt = jwtAuth.getToken();
+            info.put("jwt_claims", jwt.getClaims());
+            info.put("jwt_claim_role", jwt.getClaim("role"));
+            info.put("jwt_claim_roles", jwt.getClaim("roles"));
+            info.put("jwt_claimAsString_role", jwt.getClaimAsString("role"));
+        }
+        return info;
     }
     @PostMapping(value = "/conference/{conferenceId}/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PaperResponseDto> create(
