@@ -19,7 +19,9 @@ API compatible con S3.
 - **Optimizacion de archivos:** `FileOptimizer` intenta reducir PDFs, JPEGs y PNGs
   antes de subirlos. Otros tipos se guardan sin cambios.
 - **Seguridad:** OAuth2 resource server con JWT HMAC SHA-256. Swagger queda publico;
-  el resto requiere autenticacion salvo reglas de rol especificas.
+  el resto requiere autenticacion salvo rutas publicas o reglas de rol especificas.
+- **Eventos:** `PaperService.evaluate` publica un evento `paper.evaluated` en
+  RabbitMQ usando `RabbitTemplate` y el convertidor JSON de Jackson.
 
 ## Modelo de datos y contratos
 
@@ -65,6 +67,14 @@ BACKBLAZE_REGION=us-west-004
 BACKBLAZE_BUCKET_NAME=paper-files
 BACKBLAZE_ACCESS_KEY=replace-with-key-id
 BACKBLAZE_SECRET_KEY=replace-with-application-key
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USERNAME=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_VHOST=/
+RABBITMQ_SSL_ENABLED=false
+RABBITMQ_EXCHANGE=paper.events
+RABBITMQ_ROUTING_KEY_EVALUATED=paper.evaluated
 ```
 
 Notas:
@@ -74,6 +84,8 @@ Notas:
 - `FRONTEND_URL` se usa como patron permitido de CORS.
 - `spring.config.import` carga `.env` de forma opcional; las variables obligatorias
   deben existir en el entorno cuando no haya `.env`.
+- Las variables `RABBITMQ_*` son obligatorias para arrancar porque
+  `application.properties` y `RabbitMQConfig` no definen valores por defecto.
 
 Comandos utiles:
 
@@ -100,12 +112,16 @@ Reglas relevantes:
 
 | Ruta | Rol requerido |
 | --- | --- |
-| `POST /papers/conference/{conferenceId}/create` | `ADMIN` o `AUTHOR` |
-| `PATCH /papers/conference/{conferenceId}/{paperId}/evaluations` | `ADMIN`, `CHAIR`, `ASISTANT` o `ASSISTANT` |
+| `POST /papers/conference/{conferenceId}/create` | Publico en la configuracion actual |
+| `PATCH /papers/conference/{conferenceId}/{paperId}/evaluations` | Publico en la configuracion actual |
 | `POST /files/upload/{conferenceId}` | `ADMIN` o `CHAIR` |
 | `DELETE /files/delete/{fileId}` | `ADMIN` o `CHAIR` |
 | Swagger y OpenAPI | publico |
 | Resto de rutas | JWT autenticado |
+
+> Nota: aunque el convertidor de roles acepta `AUTHOR`, `ASSISTANT` y otros
+> valores, `SecurityConfig` solo aplica permisos por rol a carga y borrado de
+> archivos de conferencia.
 
 ## API de papers
 
@@ -158,6 +174,64 @@ Las respuestas incluyen `documents` con `id`, `originalFileName`, `contentType` 
 
 `status` es obligatorio y debe ser un valor de `PaperStatus`; `observations` es
 opcional y se guarda recortado cuando viene informado.
+
+Al evaluar se publica un evento RabbitMQ `paper.evaluated`. El publish ocurre en
+la misma llamada HTTP despues de guardar el estado; si RabbitMQ no esta
+disponible, `rabbitTemplate.convertAndSend` puede hacer fallar la respuesta y la
+transaccion JPA.
+
+## Evento `paper.evaluated`
+
+Codigo principal: `RabbitMQConfig`, `PaperEvaluatedEvent` y
+`PaperService.evaluate`.
+
+Configuracion:
+
+- Exchange: variable `RABBITMQ_EXCHANGE`; se declara como `TopicExchange`.
+- Routing key: variable `RABBITMQ_ROUTING_KEY_EVALUATED`.
+- Serializacion: `Jackson2JsonMessageConverter`.
+- Conexion: propiedades `spring.rabbitmq.*` alimentadas por `RABBITMQ_HOST`,
+  `RABBITMQ_PORT`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`,
+  `RABBITMQ_VHOST` y `RABBITMQ_SSL_ENABLED`.
+
+Contrato publicado:
+
+```json
+{
+  "eventType": "paper.evaluated",
+  "eventVersion": "1.0",
+  "eventId": "uuid",
+  "occurredAt": "2026-05-13T11:00:00Z",
+  "source": "paper-service",
+  "data": {
+    "paperId": "uuid",
+    "conferenceId": "uuid",
+    "title": "Titulo",
+    "topic": "IA",
+    "status": "ACCEPTED",
+    "evaluationObservations": "Cumple con los criterios.",
+    "evaluatedBy": {
+      "userId": "uuid",
+      "role": "CHAIR"
+    },
+    "authors": [
+      {
+        "name": "Ada Lovelace",
+        "email": "author@example.com"
+      }
+    ]
+  }
+}
+```
+
+Restricciones verificadas en el codigo:
+
+- Este servicio no declara colas, bindings, reintentos, outbox ni DLQ; los
+  consumidores deben estar conectados al exchange/routing key configurado.
+- `authors` se construye separando el campo string `Paper.authors` por comas.
+- El email de cada autor es el placeholder literal `author@example.com`.
+- `evaluatedBy.userId` es un UUID aleatorio generado al publicar y
+  `evaluatedBy.role` queda fijo en `CHAIR`; no se toma identidad del JWT.
 
 ### Adjuntos de paper
 
@@ -225,6 +299,10 @@ Codigo principal: `PaperController.evaluate` -> `PaperService.evaluate`.
 - Solo cambia `status` y `evaluationObservations`.
 - `status` debe ser uno de `PaperStatus`.
 - El paper se busca por `paperId` y `conferenceId`; si no coinciden devuelve 404.
+- Despues de guardar, publica `paper.evaluated` en RabbitMQ con el exchange y
+  routing key configurados por variables de entorno.
+- No hay reintentos ni cola local en el microservicio; si el broker esta caido,
+  la evaluacion puede responder con error.
 
 ### Archivos de soporte de conferencia
 
@@ -261,3 +339,6 @@ Codigo principal: `ConferenceFileController` -> `ConferenceFileService`.
   use path-style access, habilitado en `BackblazeConfig`.
 - **Extensiones inesperadas:** si el optimizador cambia el tipo MIME, la clave del
   objeto usa extension compatible con el contenido optimizado.
+- **La evaluacion falla despues de actualizar estado:** comprobar conectividad,
+  credenciales, vhost, SSL, exchange y routing key de RabbitMQ; el publish no
+  tiene fallback ni reintentos en el servicio.
