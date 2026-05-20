@@ -1,9 +1,9 @@
 # Paper microservice
 
 Microservicio Spring Boot para administrar papers de conferencias, sus adjuntos y
-archivos de soporte de conferencia. Expone una API HTTP protegida con JWT, persiste
-metadatos en PostgreSQL y guarda los bytes de archivos en Backblaze B2 mediante la
-API compatible con S3.
+archivos de soporte de conferencia. Expone una API HTTP con JWT para las rutas
+protegidas, persiste metadatos en PostgreSQL y guarda los bytes de archivos en
+Backblaze B2 mediante la API compatible con S3.
 
 ## Arquitectura
 
@@ -18,6 +18,8 @@ API compatible con S3.
   no guardan el contenido binario en la base de datos.
 - **Optimizacion de archivos:** `FileOptimizer` intenta reducir PDFs, JPEGs y PNGs
   antes de subirlos. Otros tipos se guardan sin cambios.
+- **Eventos:** `PaperService.evaluate` publica `paper.evaluated` en RabbitMQ usando
+  `RabbitTemplate` y serializacion JSON.
 - **Seguridad:** OAuth2 resource server con JWT HMAC SHA-256. Swagger queda publico;
   el resto requiere autenticacion salvo reglas de rol especificas.
 
@@ -60,6 +62,16 @@ SPRING_DATASOURCE_USERNAME=paper
 SPRING_DATASOURCE_PASSWORD=paper
 FRONTEND_URL=http://localhost:3000
 JWT_PUBLIC_KEY=replace-with-hmac-secret
+
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USERNAME=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_VHOST=/
+RABBITMQ_SSL_ENABLED=false
+RABBITMQ_EXCHANGE=paper.events
+RABBITMQ_ROUTING_KEY_EVALUATED=paper.evaluated
+
 BACKBLAZE_ENDPOINT=https://s3.us-west-004.backblazeb2.com
 BACKBLAZE_REGION=us-west-004
 BACKBLAZE_BUCKET_NAME=paper-files
@@ -72,6 +84,10 @@ Notas:
 - `JWT_PUBLIC_KEY` es el nombre de la variable, pero el codigo la usa como secreto
   HMAC SHA-256 (`NimbusJwtDecoder.withSecretKey`).
 - `FRONTEND_URL` se usa como patron permitido de CORS.
+- `RABBITMQ_SSL_ENABLED` tiene default `true` en `application.properties`; para un
+  broker local sin TLS declarar `false` explicitamente.
+- `RABBITMQ_EXCHANGE` crea un `TopicExchange`; los consumidores deben enlazar sus
+  colas a ese exchange con `RABBITMQ_ROUTING_KEY_EVALUATED`.
 - `spring.config.import` carga `.env` de forma opcional; las variables obligatorias
   deben existir en el entorno cuando no haya `.env`.
 
@@ -100,12 +116,17 @@ Reglas relevantes:
 
 | Ruta | Rol requerido |
 | --- | --- |
-| `POST /papers/conference/{conferenceId}/create` | `ADMIN` o `AUTHOR` |
-| `PATCH /papers/conference/{conferenceId}/{paperId}/evaluations` | `ADMIN`, `CHAIR`, `ASISTANT` o `ASSISTANT` |
+| `POST /papers/conference/{conferenceId}/create` | Publico |
+| `PATCH /papers/conference/{conferenceId}/{paperId}/evaluations` | Publico |
 | `POST /files/upload/{conferenceId}` | `ADMIN` o `CHAIR` |
 | `DELETE /files/delete/{fileId}` | `ADMIN` o `CHAIR` |
 | Swagger y OpenAPI | publico |
 | Resto de rutas | JWT autenticado |
+
+Aunque la creacion y evaluacion de papers estan publicas en `SecurityConfig`, siguen
+validando el formato de entrada y la pertenencia a `conferenceId`/`paperId` dentro
+del servicio. Si esas rutas vuelven a requerir roles, actualizar primero
+`SecurityConfig` y despues esta tabla.
 
 ## API de papers
 
@@ -122,7 +143,6 @@ Ejemplo:
 
 ```bash
 curl -X POST "http://localhost:8083/papers/conference/$CONFERENCE_ID/create" \
-  -H "Authorization: Bearer $TOKEN" \
   -F 'paper={"title":"Titulo","abstractText":"Resumen","topic":"IA","institutionalAffiliation":"Universidad","keywords":"ia,ml","authors":"Ada Lovelace"};type=application/json' \
   -F "files=@paper.pdf"
 ```
@@ -158,6 +178,47 @@ Las respuestas incluyen `documents` con `id`, `originalFileName`, `contentType` 
 
 `status` es obligatorio y debe ser un valor de `PaperStatus`; `observations` es
 opcional y se guarda recortado cuando viene informado.
+
+Despues de persistir la evaluacion, el servicio publica un evento RabbitMQ:
+
+```json
+{
+  "eventType": "paper.evaluated",
+  "eventVersion": "1.0",
+  "eventId": "uuid",
+  "occurredAt": "2026-05-20T11:00:00Z",
+  "source": "paper-service",
+  "data": {
+    "paperId": "uuid",
+    "conferenceId": "uuid",
+    "title": "Titulo",
+    "topic": "IA",
+    "status": "ACCEPTED",
+    "evaluationObservations": "Cumple con los criterios.",
+    "evaluatedBy": {
+      "userId": "uuid",
+      "role": "CHAIR"
+    },
+    "authors": [
+      {
+        "name": "Ada Lovelace",
+        "email": "author@example.com"
+      }
+    ]
+  }
+}
+```
+
+Restricciones actuales del evento:
+
+- Se publica en `RabbitMQConfig.EXCHANGE` con routing key
+  `RabbitMQConfig.ROUTING_KEY_EVALUATED`.
+- La publicacion ocurre dentro del flujo transaccional de evaluacion y no hay
+  outbox ni reintentos propios del dominio.
+- `authors` se deriva separando el campo `authors` por comas; el email es el valor
+  placeholder `author@example.com`.
+- `evaluatedBy.userId` se genera con un UUID aleatorio y `role` se fija en `CHAIR`;
+  no proviene del JWT.
 
 ### Adjuntos de paper
 
@@ -211,11 +272,10 @@ Restricciones del flujo:
 Codigo principal: `PaperController.create` -> `PaperService.create` ->
 `FileOptimizer` -> `FileStorageService.uploadOptimized`.
 
-1. Verificar JWT con rol `ADMIN` o `AUTHOR`.
-2. Enviar `multipart/form-data` con parte `paper` como JSON y parte opcional
+1. Enviar `multipart/form-data` con parte `paper` como JSON y parte opcional
    `files`.
-3. Confirmar que la respuesta incluye `documents` cuando se subieron archivos.
-4. Si la respuesta es 500 durante la carga, revisar conectividad y permisos del
+2. Confirmar que la respuesta incluye `documents` cuando se subieron archivos.
+3. Si la respuesta es 500 durante la carga, revisar conectividad y permisos del
    bucket; la subida al bucket ocurre antes de guardar el registro JPA.
 
 ### Evaluacion de papers
@@ -225,6 +285,9 @@ Codigo principal: `PaperController.evaluate` -> `PaperService.evaluate`.
 - Solo cambia `status` y `evaluationObservations`.
 - `status` debe ser uno de `PaperStatus`.
 - El paper se busca por `paperId` y `conferenceId`; si no coinciden devuelve 404.
+- Al terminar, se publica `paper.evaluated` en RabbitMQ. Si el broker no esta
+  disponible o las variables `RABBITMQ_*` son invalidas, la evaluacion puede fallar
+  aunque la entrada HTTP sea valida.
 
 ### Archivos de soporte de conferencia
 
@@ -249,10 +312,14 @@ Codigo principal: `ConferenceFileController` -> `ConferenceFileService`.
 ## Troubleshooting
 
 - **La aplicacion no arranca por propiedades faltantes:** revisar
-  `SPRING_DATASOURCE_URL`, `FRONTEND_URL`, `JWT_PUBLIC_KEY` y variables `BACKBLAZE_*`.
+  `SPRING_DATASOURCE_URL`, `FRONTEND_URL`, `JWT_PUBLIC_KEY`, variables
+  `RABBITMQ_*` y variables `BACKBLAZE_*`.
 - **JWT valido pero sin permisos:** verificar que el claim use `roles`, `role` o
   `authority` y que contenga roles como `ADMIN`, `AUTHOR`, `CHAIR`, `ASSISTANT` o
   `ASISTANT`.
+- **Evaluar un paper devuelve error de broker:** confirmar host, puerto, vhost,
+  credenciales, TLS (`RABBITMQ_SSL_ENABLED`) y que el exchange configurado exista o
+  pueda declararse.
 - **CORS bloquea el frontend:** confirmar que `FRONTEND_URL` coincide con el origen
   real del navegador. Se admiten patrones porque se usa `setAllowedOriginPatterns`.
 - **Descargas devuelven 404:** confirmar que el ID pertenezca a la misma conferencia
