@@ -83,6 +83,11 @@ public class PaperController {
         return service.listEvaluationTray(conferenceId);
     }
 
+    @GetMapping("/public/conference/{conferenceId}/approved")
+    public List<PaperResponseDto> listApprovedForVisitors(@PathVariable UUID conferenceId) {
+        return service.listApprovedForVisitors(conferenceId);
+    }
+
     @GetMapping("/conference/{conferenceId}/{paperId}")
     public PaperResponseDto getOne(
             @PathVariable UUID conferenceId,

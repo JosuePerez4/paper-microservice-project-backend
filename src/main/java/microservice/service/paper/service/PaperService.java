@@ -90,6 +90,15 @@ public class PaperService {
     }
 
     @Transactional(readOnly = true)
+    public List<PaperResponseDto> listApprovedForVisitors(UUID conferenceId) {
+        return repository
+                .findByConferenceIdAndStatusWithAttachments(conferenceId, PaperStatus.ACCEPTED)
+                .stream()
+                .map(PaperResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public PaperResponseDto getById(UUID conferenceId, UUID paperId) {
         Paper paper = requirePaperWithAttachments(conferenceId, paperId);
         return PaperResponseDto.from(paper);

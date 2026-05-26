@@ -47,6 +47,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator", "/actuator/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/papers/public/conference/*/approved").permitAll()
                 .requestMatchers(HttpMethod.POST, "/papers/conference/*/create").hasAnyRole("ADMIN", "AUTHOR")
                 .requestMatchers(HttpMethod.PATCH, "/papers/conference/*/*/evaluations")
                     .hasAnyRole("ADMIN", "CHAIR", "ASISTANT", "ASSISTANT")
