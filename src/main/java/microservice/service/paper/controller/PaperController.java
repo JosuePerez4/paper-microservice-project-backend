@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -67,8 +68,17 @@ public class PaperController {
     public ResponseEntity<PaperResponseDto> create(
             @PathVariable UUID conferenceId,
             @RequestPart("paper") @Valid PaperCreateDto body,
-            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
-        return ResponseEntity.ok(service.create(conferenceId, body, files));
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal Jwt jwt) throws IOException {
+        return ResponseEntity.ok(service.create(conferenceId, resolveUserId(jwt), body, files));
+    }
+
+    private static UUID resolveUserId(Jwt jwt) {
+        String userIdClaim = jwt.getClaimAsString("userId");
+        if (userIdClaim == null || userIdClaim.isBlank()) {
+            userIdClaim = jwt.getSubject();
+        }
+        return UUID.fromString(userIdClaim);
     }
 
     @GetMapping("/conference/{conferenceId}/list")
