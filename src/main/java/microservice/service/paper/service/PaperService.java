@@ -25,12 +25,15 @@ import microservice.service.paper.repository.PaperRepository;
 import microservice.service.paper.service.FileOptimizer.OptimizedPayload;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import microservice.service.paper.config.RabbitMQConfig;
+import microservice.service.paper.dto.EnrollmentEventDTO;
 import microservice.service.paper.dto.PaperEvaluatedEvent;
 import java.time.Instant;
 import java.util.Arrays;
 
 @Service
 public class PaperService {
+
+    private static final String INSCRIPTION_TYPE_AUTOR = "AUTOR";
 
     private final PaperRepository repository;
     private final PaperAttachmentRepository attachmentRepository;
@@ -52,7 +55,11 @@ public class PaperService {
     }
 
     @Transactional
-    public PaperResponseDto create(UUID conferenceId, PaperCreateDto dto, List<MultipartFile> files) throws IOException {
+    public PaperResponseDto create(
+            UUID conferenceId,
+            UUID authorUserId,
+            PaperCreateDto dto,
+            List<MultipartFile> files) throws IOException {
         Paper paper = new Paper();
         paper.setConferenceId(conferenceId);
         paper.setTitle(dto.getTitle().trim());
@@ -70,8 +77,23 @@ public class PaperService {
         }
 
         Paper saved = repository.save(paper);
+        publishAuthorEnrollmentCreated(conferenceId, authorUserId);
         return PaperResponseDto.from(
                 repository.findByIdAndConferenceIdWithAttachments(saved.getId(), conferenceId).orElse(saved));
+    }
+
+    private void publishAuthorEnrollmentCreated(UUID conferenceId, UUID authorUserId) {
+        if (authorUserId == null) {
+            return;
+        }
+        EnrollmentEventDTO event = new EnrollmentEventDTO();
+        event.setConferenceId(conferenceId);
+        event.setUserId(authorUserId);
+        event.setTipo(INSCRIPTION_TYPE_AUTOR);
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ENROLLMENT_EXCHANGE,
+                RabbitMQConfig.ENROLLMENT_ROUTING_KEY_CREATED,
+                event);
     }
 
     @Transactional(readOnly = true)
