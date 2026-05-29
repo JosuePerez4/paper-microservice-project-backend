@@ -1,6 +1,10 @@
 package microservice.service.paper.dto;
 
+import java.util.List;
+import java.util.UUID;
+
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,5 +19,7 @@ public class PaperCreateDto {
     @NotBlank private String topic;
     @NotBlank private String institutionalAffiliation;
     @NotBlank private String keywords;
-    @NotBlank private String authors;
+
+    @NotEmpty(message = "Debe incluir al menos un autor registrado")
+    private List<UUID> authorIds;
 }
