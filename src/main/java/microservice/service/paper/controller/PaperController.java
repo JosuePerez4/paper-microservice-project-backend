@@ -75,7 +75,7 @@ public class PaperController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "Authorization", required = false) String authorization) throws IOException {
         return ResponseEntity.ok(service.create(
-                conferenceId, body, files, resolveUserId(jwt), authorization));
+                conferenceId, body, files, resolveUserId(jwt), resolveRole(jwt), authorization));
     }
 
     @GetMapping("/conference/{conferenceId}/list")
@@ -151,5 +151,23 @@ public class PaperController {
             userIdClaim = jwt.getSubject();
         }
         return UUID.fromString(userIdClaim);
+    }
+
+    private static String resolveRole(Jwt jwt) {
+        if (jwt == null) {
+            return null;
+        }
+        String role = jwt.getClaimAsString("role");
+        if (role != null && !role.isBlank()) {
+            return role.trim();
+        }
+        Object rolesClaim = jwt.getClaim("roles");
+        if (rolesClaim instanceof List<?> rolesList && !rolesList.isEmpty()) {
+            Object first = rolesList.get(0);
+            if (first instanceof String roleName && !roleName.isBlank()) {
+                return roleName.startsWith("ROLE_") ? roleName.substring(5) : roleName;
+            }
+        }
+        return null;
     }
 }
