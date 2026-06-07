@@ -28,5 +28,17 @@ public interface PaperRepository extends JpaRepository<Paper, UUID> {
             @Param("id") UUID id,
             @Param("conferenceId") UUID conferenceId);
 
+    @Query("""
+            SELECT DISTINCT p FROM Paper p
+            LEFT JOIN FETCH p.attachments
+            LEFT JOIN p.authorIds authorId
+            WHERE p.conferenceId = :conferenceId
+              AND (p.submittedByUserId = :userId OR authorId = :userId)
+            ORDER BY p.title ASC
+            """)
+    List<Paper> findByConferenceIdAndUserInvolvedWithAttachments(
+            @Param("conferenceId") UUID conferenceId,
+            @Param("userId") UUID userId);
+
     List<Paper> findByStatus(PaperStatus status);
 }

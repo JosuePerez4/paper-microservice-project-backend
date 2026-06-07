@@ -22,6 +22,8 @@ public class RabbitMQConfig {
 
     public static String EXCHANGE;
     public static String ROUTING_KEY_EVALUATED;
+    public static final String ARTICLE_EXCHANGE = "article.events";
+    public static final String ROUTING_KEY_ARTICLE_ACCEPTED = "article.accepted";
 
     @Value("${RABBITMQ_EXCHANGE}")
     public void setExchange(String exchange) {
@@ -36,6 +38,11 @@ public class RabbitMQConfig {
     @Bean
     public TopicExchange exchange() {
         return new TopicExchange(exchangeName);
+    }
+
+    @Bean
+    public TopicExchange articleExchange() {
+        return new TopicExchange(ARTICLE_EXCHANGE);
     }
 
     @Bean
