@@ -78,6 +78,7 @@ public class PaperService {
 
     private static final Logger log = LoggerFactory.getLogger(PaperService.class);
     private static final String ROLE_GUEST_SPOKER = "GUEST_SPOKER";
+    private static final String ROLE_AUTHOR = "AUTHOR";
 
 
 
@@ -229,6 +230,24 @@ public class PaperService {
 
     @Transactional(readOnly = true)
 
+    public List<PaperResponseDto> listMyPapersByConference(
+            UUID conferenceId,
+            UUID userId,
+            String authorizationHeader) {
+
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no autenticado");
+        }
+
+        return repository.findByConferenceIdAndUserInvolvedWithAttachments(conferenceId, userId).stream()
+                .map(paper -> PaperResponseDto.from(paper, resolveAuthorsForPaper(paper, authorizationHeader)))
+                .collect(Collectors.toList());
+    }
+
+
+
+    @Transactional(readOnly = true)
+
     public List<PaperResponseDto> listEvaluationTray(UUID conferenceId) {
 
         return repository.findByConferenceIdAndStatusWithAttachments(conferenceId, PaperStatus.SUBMITTED).stream()
@@ -261,12 +280,17 @@ public class PaperService {
 
     @Transactional(readOnly = true)
 
-    public PaperResponseDto getById(UUID conferenceId, UUID paperId) {
+    public PaperResponseDto getById(
+            UUID conferenceId,
+            UUID paperId,
+            UUID requesterId,
+            String requesterRole,
+            String authorizationHeader) {
 
         Paper paper = requirePaperWithAttachments(conferenceId, paperId);
+        ensureCanAccessPaper(paper, requesterId, requesterRole);
 
-        return PaperResponseDto.from(paper);
-
+        return PaperResponseDto.from(paper, resolveAuthorsForPaper(paper, authorizationHeader));
     }
 
 
@@ -466,6 +490,86 @@ public class PaperService {
         return repository.findByIdAndConferenceIdWithAttachments(paperId, conferenceId)
 
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Artículo no encontrado"));
+
+    }
+
+
+
+    private List<PaperAuthorDto> resolveAuthorsForPaper(Paper paper, String authorizationHeader) {
+
+        if (paper.getAuthorIds() == null || paper.getAuthorIds().isEmpty()) {
+
+            return Collections.emptyList();
+
+        }
+
+
+
+        try {
+
+            return authClient.validatePaperAuthors(paper.getAuthorIds(), authorizationHeader);
+
+        } catch (ResponseStatusException ex) {
+
+            log.warn("No se pudieron resolver autores del paper {}: {}", paper.getId(), ex.getMessage());
+
+            return Collections.emptyList();
+
+        }
+
+    }
+
+
+
+    private void ensureCanAccessPaper(Paper paper, UUID requesterId, String requesterRole) {
+
+        if (!isAuthorRestrictedRole(requesterRole)) {
+
+            return;
+
+        }
+
+        if (requesterId == null || !isUserInvolvedInPaper(paper, requesterId)) {
+
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para consultar este artículo");
+
+        }
+
+    }
+
+
+
+    private static boolean isAuthorRestrictedRole(String role) {
+
+        if (role == null || role.isBlank()) {
+
+            return true;
+
+        }
+
+        String normalized = role.startsWith("ROLE_") ? role.substring(5) : role;
+
+        return ROLE_AUTHOR.equalsIgnoreCase(normalized) || ROLE_GUEST_SPOKER.equalsIgnoreCase(normalized);
+
+    }
+
+
+
+    private static boolean isUserInvolvedInPaper(Paper paper, UUID userId) {
+
+        if (userId == null) {
+
+            return false;
+
+        }
+
+        if (userId.equals(paper.getSubmittedByUserId())) {
+
+            return true;
+
+        }
+
+        return paper.getAuthorIds() != null && paper.getAuthorIds().contains(userId);
 
     }
 

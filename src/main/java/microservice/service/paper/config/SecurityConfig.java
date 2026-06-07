@@ -50,6 +50,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/papers/public/conference/*/approved").permitAll()
                 .requestMatchers(HttpMethod.POST, "/papers/conference/*/create")
                     .hasAnyRole("ADMIN", "AUTHOR", "GUEST_SPOKER")
+                .requestMatchers(HttpMethod.GET, "/papers/conference/*/mine")
+                    .hasAnyRole("ADMIN", "AUTHOR", "GUEST_SPOKER")
                 .requestMatchers(HttpMethod.PATCH, "/papers/conference/*/*/evaluations")
                     .hasAnyRole("ADMIN", "CHAIR", "ASISTANT", "ASSISTANT")
                 .requestMatchers("/files/upload/*", "/files/delete/*").hasAnyRole("ADMIN", "CHAIR")

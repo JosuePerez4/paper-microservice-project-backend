@@ -85,6 +85,14 @@ public class PaperController {
         return service.listByConference(conferenceId, status);
     }
 
+    @GetMapping("/conference/{conferenceId}/mine")
+    public List<PaperResponseDto> listMine(
+            @PathVariable UUID conferenceId,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return service.listMyPapersByConference(conferenceId, resolveUserId(jwt), authorization);
+    }
+
     @GetMapping("/conference/{conferenceId}/evaluations-tray")
     public List<PaperResponseDto> evaluationTray(@PathVariable UUID conferenceId) {
         return service.listEvaluationTray(conferenceId);
@@ -98,8 +106,15 @@ public class PaperController {
     @GetMapping("/conference/{conferenceId}/{paperId}")
     public PaperResponseDto getOne(
             @PathVariable UUID conferenceId,
-            @PathVariable UUID paperId) {
-        return service.getById(conferenceId, paperId);
+            @PathVariable UUID paperId,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return service.getById(
+                conferenceId,
+                paperId,
+                resolveUserId(jwt),
+                resolveRole(jwt),
+                authorization);
     }
 
     @PatchMapping("/conference/{conferenceId}/{paperId}/evaluations")
