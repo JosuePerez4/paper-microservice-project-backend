@@ -74,13 +74,9 @@ import java.time.Instant;
 
 public class PaperService {
 
-
-
     private static final Logger log = LoggerFactory.getLogger(PaperService.class);
     private static final String ROLE_GUEST_SPOKER = "GUEST_SPOKER";
     private static final String ROLE_AUTHOR = "AUTHOR";
-
-
 
     private final PaperRepository repository;
 
@@ -158,8 +154,6 @@ public class PaperService {
 
         List<PaperAuthorDto> validatedAuthors = authClient.validatePaperAuthors(authorIds, authorizationHeader);
 
-
-
         Paper paper = new Paper();
 
         paper.setConferenceId(conferenceId);
@@ -209,7 +203,6 @@ public class PaperService {
         return PaperResponseDto.from(loaded, validatedAuthors);
 
     }
-
 
 
     @Transactional(readOnly = true)

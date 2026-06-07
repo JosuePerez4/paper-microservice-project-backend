@@ -17,6 +17,9 @@ public class RabbitMQConfig {
     @Value("${RABBITMQ_ROUTING_KEY_EVALUATED}")
     private String routingKey;
 
+    public static final String ENROLLMENT_EXCHANGE = "enrollment.events";
+    public static final String ENROLLMENT_ROUTING_KEY_CREATED = "enrollment.created";
+
     public static String EXCHANGE;
     public static String ROUTING_KEY_EVALUATED;
     public static final String ARTICLE_EXCHANGE = "article.events";
