@@ -22,6 +22,7 @@ public class PaperResponseDto {
     private UUID submittedByUserId;
     private List<UUID> authorIds;
     private List<PaperAuthorDto> authors;
+    private UUID presenterId;
     private String title;
     private String abstractText;
     private String topic;
@@ -43,6 +44,7 @@ public class PaperResponseDto {
         dto.setSubmittedByUserId(p.getSubmittedByUserId());
         dto.setAuthorIds(p.getAuthorIds() == null ? List.of() : new ArrayList<>(p.getAuthorIds()));
         dto.setAuthors(enrichedAuthors);
+        dto.setPresenterId(p.getPresenterId());
         dto.setTitle(p.getTitle());
         dto.setAbstractText(p.getAbstractText());
         dto.setTopic(p.getTopic());

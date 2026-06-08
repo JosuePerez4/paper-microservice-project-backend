@@ -17,11 +17,8 @@ import lombok.NoArgsConstructor;
 
 
 @Data
-
 @NoArgsConstructor
-
 @AllArgsConstructor
-
 public class ArticleAcceptedEventDTO {
 
     private UUID articleId;
@@ -29,5 +26,7 @@ public class ArticleAcceptedEventDTO {
     private UUID conferenceId;
 
     private List<UUID> authorIds;
+
+    private UUID presenterId;
 
 }
