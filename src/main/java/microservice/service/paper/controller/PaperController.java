@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -76,6 +77,14 @@ public class PaperController {
             @RequestHeader(value = "Authorization", required = false) String authorization) throws IOException {
         return ResponseEntity.ok(service.create(
                 conferenceId, body, files, resolveUserId(jwt), resolveRole(jwt), authorization));
+    }
+
+    private static UUID resolveUserId(Jwt jwt) {
+        String userIdClaim = jwt.getClaimAsString("userId");
+        if (userIdClaim == null || userIdClaim.isBlank()) {
+            userIdClaim = jwt.getSubject();
+        }
+        return UUID.fromString(userIdClaim);
     }
 
     @GetMapping("/conference/{conferenceId}/list")
