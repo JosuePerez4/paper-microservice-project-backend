@@ -150,6 +150,26 @@ public class PaperService {
 
         }
 
+        if (dto.getPresenterId() == null) {
+
+            throw new ResponseStatusException(
+
+                    HttpStatus.BAD_REQUEST,
+
+                    "Debe especificar un ponente para el artículo");
+
+        }
+
+        if (!authorIds.contains(dto.getPresenterId())) {
+
+            throw new ResponseStatusException(
+
+                    HttpStatus.BAD_REQUEST,
+
+                    "El ponente debe estar incluido en la lista de autores");
+
+        }
+
 
 
         List<PaperAuthorDto> validatedAuthors = authClient.validatePaperAuthors(authorIds, authorizationHeader);
@@ -161,6 +181,8 @@ public class PaperService {
         paper.setSubmittedByUserId(submitterId);
 
         paper.setAuthorIds(new ArrayList<>(authorIds));
+
+        paper.setPresenterId(dto.getPresenterId());
 
         paper.setTitle(dto.getTitle().trim());
 
@@ -630,7 +652,9 @@ public class PaperService {
 
                 paper.getConferenceId(),
 
-                new ArrayList<>(paper.getAuthorIds()));
+                new ArrayList<>(paper.getAuthorIds()),
+
+                paper.getPresenterId());
 
 
 

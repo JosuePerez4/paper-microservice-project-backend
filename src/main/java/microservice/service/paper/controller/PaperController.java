@@ -17,7 +17,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,7 +48,10 @@ public class PaperController {
         this.service = service;
     }
 
-    /** Endpoint temporal de debug: muestra claims JWT y authorities. Quitar antes de producción. */
+    /**
+     * Endpoint temporal de debug: muestra claims JWT y authorities. Quitar antes de
+     * producción.
+     */
     @GetMapping("/debug/auth")
     public Map<String, Object> debugAuth(Authentication authentication) {
         Map<String, Object> info = new LinkedHashMap<>();
@@ -68,6 +70,7 @@ public class PaperController {
         }
         return info;
     }
+
     @PostMapping(value = "/conference/{conferenceId}/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PaperResponseDto> create(
             @PathVariable UUID conferenceId,
@@ -77,14 +80,6 @@ public class PaperController {
             @RequestHeader(value = "Authorization", required = false) String authorization) throws IOException {
         return ResponseEntity.ok(service.create(
                 conferenceId, body, files, resolveUserId(jwt), resolveRole(jwt), authorization));
-    }
-
-    private static UUID resolveUserId(Jwt jwt) {
-        String userIdClaim = jwt.getClaimAsString("userId");
-        if (userIdClaim == null || userIdClaim.isBlank()) {
-            userIdClaim = jwt.getSubject();
-        }
-        return UUID.fromString(userIdClaim);
     }
 
     @GetMapping("/conference/{conferenceId}/list")
